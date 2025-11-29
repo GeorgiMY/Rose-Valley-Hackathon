@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Platform, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 // Function to get color based on humidity
 const getHumidityColor = (humidity) => {
@@ -30,7 +31,6 @@ const ArduinoModuleCard = ({
 
   // Save the updated humidity to the parent component
   const handleSavePress = () => {
-    // Pass the updated humidity to the parent
     onSavePress(id, humidity);
     Alert.alert('Success', `Humidity for ${id} updated to ${humidity}%`);
   };
@@ -42,14 +42,17 @@ const ArduinoModuleCard = ({
     >
       <Text style={styles.id}>Module ID: {id}</Text>
       <View style={styles.humidityContainer}>
+        {/* Decrease humidity with icon */}
         <TouchableOpacity onPress={decreaseHumidity} style={styles.adjustButton}>
-          <Text style={styles.buttonText}>-</Text>
+          <Ionicons name="remove" size={30} color="#fff" />
         </TouchableOpacity>
 
+        {/* Display humidity */}
         <Text style={[styles.humidity, { color: humidityColor }]}>{humidity}%</Text>
 
+        {/* Increase humidity with icon */}
         <TouchableOpacity onPress={increaseHumidity} style={styles.adjustButton}>
-          <Text style={styles.buttonText}>+</Text>
+          <Ionicons name="add" size={30} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -63,26 +66,22 @@ const ArduinoModuleCard = ({
 
 // Main App Component
 export default function App() {
-  // State to hold the modules
   const [arduinoModules, setArduinoModules] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Function to fetch sensor data from the server
   const fetchSensorData = async () => {
     try {
-      // Use the correct URL based on the platform (Android Emulator or Physical Device)
-      const apiUrl =
+      /*const apiUrl =
         Platform.OS === 'android'
           ? 'http://172.29.32.1:3000'  // For Android Emulator
-          : 'http://localhost:3000/sensors'; // For iOS or other platforms
+          : 'http://localhost:3000/sensors';*/ // For iOS or other platforms
 
-      const response = await fetch(apiUrl);
-      console.log(response);
+      const response = await fetch('https://waterwise.live/sensors');
       const data = await response.json();
       setArduinoModules(data); // Update state with the fetched data
     } catch (error) {
       console.error('Error fetching data:', error);
-      console.log(response);
     } finally {
       setLoading(false); // Set loading to false after data is fetched
     }
@@ -103,7 +102,6 @@ export default function App() {
 
   // Save button handler (update the humidity in the state)
   const handleSavePress = (moduleId, updatedHumidity) => {
-    // Update the state with the new humidity value for the specific module
     setArduinoModules((prevModules) =>
       prevModules.map((module) =>
         module.id === moduleId
@@ -119,7 +117,15 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Arduino Modules</Text>
+      {/* Header with Logo */}
+      <View style={styles.header}>
+        <Image
+          source={require('./assets/waterwise-logo.png')}  // Adjust the path as needed
+          style={styles.logo}
+        />
+        <Text style={styles.headerTitle}>WaterWise</Text>
+      </View>
+
       <FlatList
         data={arduinoModules}
         keyExtractor={(item) => item.id}
@@ -142,6 +148,19 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: '#fff',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logo: {
+    width: 120, // Adjust size
+    height: 120, // Adjust size
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#4caf50', // Adjust color to match the logo theme
   },
   title: {
     fontSize: 24,
