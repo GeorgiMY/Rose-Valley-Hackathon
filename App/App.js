@@ -88,8 +88,13 @@ export default function App() {
   };
 
   // Fetch the data when the component mounts
-  useEffect(() => {
+   useEffect(() => {
     fetchSensorData();
+    const intervalId = setInterval(() => {
+      fetchSensorData();
+    }, 100);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   // Example function to handle tapping on a module
