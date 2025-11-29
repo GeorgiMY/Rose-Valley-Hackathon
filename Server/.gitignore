@@ -1,0 +1,4 @@
+node_modules
+sensors.db
+sensors.db-shm
+sensors.db-wal

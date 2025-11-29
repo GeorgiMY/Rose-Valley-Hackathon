@@ -42,5 +42,5 @@ void loop() {
     Serial.write(esp.read());
   }
 
-  delay(1000);
+  delay(100);
 }
