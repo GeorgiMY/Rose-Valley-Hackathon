@@ -1,0 +1,18 @@
+[
+  {
+    "id": "module_001",
+    "humidity": 45
+  },
+  {
+    "id": "module_002",
+    "humidity": 60
+  },
+  {
+    "id": "module_003",
+    "humidity": 35
+  },
+  {
+    "id": "module_004",
+    "humidity": 80
+  }
+]
