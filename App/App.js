@@ -95,7 +95,7 @@ export default function App() {
   };
 
   // Fetch the data when the component mounts
-  useEffect(() => {
+   useEffect(() => {
     fetchSensorData();
     const intervalId = setInterval(() => {
       fetchSensorData();

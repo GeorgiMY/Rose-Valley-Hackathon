@@ -1,80 +1,91 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const os = require('os');
-const fs = require('fs');
+const express = require("express");
+const cors = require("cors");
+const Database = require("better-sqlite3");
+const os = require("os");
+
 const app = express();
 const port = 3000;
 
-// Allow all origins (CORS)
-app.use(cors());
+// Open or create DB
+const db = new Database("sensors.db");
+db.pragma("journal_mode = WAL");
 
-// Parse incoming JSON requests
+// Single table for latest values
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sensors (
+    id TEXT PRIMARY KEY,
+    value REAL NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+`);
+
+// Prepared statements
+const upsert = db.prepare(`
+  INSERT INTO sensors (id, value, updated_at)
+  VALUES (@id, @value, @ts)
+  ON CONFLICT(id) DO UPDATE SET
+    value = excluded.value,
+    updated_at = excluded.updated_at
+`);
+
+const selectAll = db.prepare(`
+  SELECT id, value, updated_at FROM sensors ORDER BY id
+`);
+
+app.use(cors());
 app.use(express.json());
 
-// Serve the JSON data when a GET request is made to /sensors
-app.get('/sensors', (req, res) => {
-    const sensorsPath = path.join(__dirname, 'sensors.json');
-
-    // Read and send the JSON file
-    fs.readFile(sensorsPath, 'utf8', (err, data) => {
-        if (err) {
-            console.error('Error reading sensors file:', err);
-            return res.status(500).send('Error reading sensors data');
-        }
-        res.json(JSON.parse(data)); // Send the JSON data
-    });
+app.get("/sensors", (_req, res) => {
+    const rows = selectAll.all();
+    // Return as simple map: { sensor1: 0.5, ... }
+    const map = Object.fromEntries(rows.map((r) => [r.id, r.value]));
+    res.json(map);
 });
 
-// Handle POST request to update the sensors data
-app.post('/sensors', (req, res) => {
-    const newData = req.body;  // The data sent in the POST request
+app.post("/sensors", (req, res) => {
+    const body = req.body;
+    if (!body || typeof body !== "object") {
+        return res.status(400).json({ error: "Invalid JSON body" });
+    }
 
-    const sensorsPath = path.join(__dirname, 'sensors.json');
+    const ts = Math.floor(Date.now() / 1000);
+    let changes = 0;
 
-    // Read the existing data from sensors.json
-    fs.readFile(sensorsPath, 'utf8', (err, data) => {
-        if (err) {
-            console.error('Error reading sensors file:', err);
-            return res.status(500).send('Error reading sensors data');
-        }
-
-        // Parse the existing JSON data
-        const sensors = JSON.parse(data);
-
-        const updatedSensors = sensors.map(sensor => {
-            if (sensor.id === newData.id) {
-                return { ...sensor, ...newData }; // Update the sensor with the new data
-            }
-            return sensor;
-        });
-
-        // Write the updated data back to the JSON file
-        fs.writeFile(sensorsPath, JSON.stringify(updatedSensors, null, 2), 'utf8', (err) => {
-            if (err) {
-                console.error('Error writing to sensors file:', err);
-                return res.status(500).send('Error saving updated sensors data');
-            }
-            res.status(200).send('Sensors data updated successfully');
-        });
-    });
-});
-
-// Get the local IP address of the machine
-const getLocalIP = () => {
-    const interfaces = os.networkInterfaces();
-    for (const iface in interfaces) {
-        for (const alias of interfaces[iface]) {
-            if (alias.family === 'IPv4' && !alias.internal) {
-                return alias.address;
+    // Shape A: { "id": "sensor1", "value": 0.5 }
+    if (typeof body.id === "string" && typeof body.value === "number") {
+        upsert.run({ id: body.id, value: body.value, ts });
+        changes++;
+    } else if (!Array.isArray(body)) {
+        // Shape B: { "sensor1": 0.5, "sensor2": 0.1 }
+        for (const [k, v] of Object.entries(body)) {
+            if (typeof v === "number") {
+                upsert.run({ id: k, value: v, ts });
+                changes++;
             }
         }
     }
-    return 'localhost';
-};
 
-// Start the server
-app.listen(port, '0.0.0.0', () => {
-    const localIP = getLocalIP(); // Get local IP of the machine
-    console.log(`Server is running at http://${localIP}:${port}`);
+    if (!changes) {
+        return res
+            .status(400)
+            .json({ error: "No numeric sensor values found in body" });
+    }
+
+    const rows = selectAll.all();
+    const map = Object.fromEntries(rows.map((r) => [r.id, r.value]));
+    res.json({ ok: true, sensors: map });
+});
+
+function getLocalIP() {
+    const nifs = os.networkInterfaces();
+    for (const name in nifs) {
+        for (const it of nifs[name] || []) {
+            if (it.family === "IPv4" && !it.internal) return it.address;
+        }
+    }
+    return "localhost";
+}
+
+app.listen(port, "0.0.0.0", () => {
+    console.log(`SQLite server on http://${getLocalIP()}:${port}`);
 });
