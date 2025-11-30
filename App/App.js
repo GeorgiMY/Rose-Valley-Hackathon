@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import PolygonVisualizer from './components/PolygonVisualizer';
 
 // Function to get color based on humidity
 const getHumidityColor = (humidity) => {
@@ -68,6 +69,7 @@ const ArduinoModuleCard = ({
 export default function App() {
   const [arduinoModules, setArduinoModules] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentScreen, setCurrentScreen] = useState('home'); // 'home' | 'polygon'
 
   // Function to fetch sensor data from the server
   const fetchSensorData = async () => {
@@ -82,6 +84,11 @@ export default function App() {
       setArduinoModules(data); // Update state with the fetched data
     } catch (error) {
       console.error('Error fetching data:', error);
+      // Fallback data for demo if fetch fails
+      setArduinoModules([
+        { id: 'Module 1', humidity: 45 },
+        { id: 'Module 2', humidity: 70 },
+      ]);
     } finally {
       setLoading(false); // Set loading to false after data is fetched
     }
@@ -120,6 +127,10 @@ export default function App() {
     return <ActivityIndicator size="large" color="#0000ff" style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }} />;
   }
 
+  if (currentScreen === 'polygon') {
+    return <PolygonVisualizer onBack={() => setCurrentScreen('home')} />;
+  }
+
   return (
     <View style={styles.container}>
       {/* Header with Logo */}
@@ -130,6 +141,15 @@ export default function App() {
         />
         <Text style={styles.headerTitle}>WaterWise</Text>
       </View>
+
+      <TouchableOpacity
+        style={styles.toolButton}
+        onPress={() => setCurrentScreen('polygon')}
+      >
+        <Text style={styles.toolButtonText}>Open Polygon Tool</Text>
+      </TouchableOpacity>
+
+      <Text style={styles.title}>Sensor Modules</Text>
 
       <FlatList
         data={arduinoModules}
@@ -222,4 +242,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+  toolButton: {
+    backgroundColor: '#673ab7',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  toolButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  }
 });
