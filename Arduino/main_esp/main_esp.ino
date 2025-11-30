@@ -6,6 +6,7 @@
 static const char* SSID     = "Pochti Incognitonation";
 static const char* PASS     = "12345678";
 static const char* POST_URL = "https://www.waterwise.live/sensors";
+static const char* GET_URL  = "https://www.waterwise.live/percent";
 
 static const int RX2_PIN    = 16;
 static const int TX2_PIN    = 17;

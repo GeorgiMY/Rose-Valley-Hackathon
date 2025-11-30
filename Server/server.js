@@ -19,6 +19,14 @@ db.exec(`
   );
 `);
 
+db.exec(`
+    CREATE TABLE IF NOT EXISTS percent (
+      id TEXT PRIMARY KEY,
+      value REAL NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+`);
+
 // Prepared statements
 const upsert = db.prepare(`
   INSERT INTO sensors (id, value, updated_at)
@@ -32,6 +40,18 @@ const selectAll = db.prepare(`
   SELECT id, value, updated_at FROM sensors ORDER BY id
 `);
 
+const upsertPercent = db.prepare(`
+    INSERT INTO percent (id, value, updated_at)
+    VALUES (@id, @value, @ts)
+    ON CONFLICT(id) DO UPDATE SET
+      value = excluded.value,
+      updated_at = excluded.updated_at
+  `);
+
+const selectPercentAll = db.prepare(`
+    SELECT id, value FROM percent ORDER BY id
+`);
+
 app.use(cors());
 app.use(express.json());
 
@@ -41,6 +61,44 @@ app.get("/sensors", (_req, res) => {
     const map = Object.fromEntries(rows.map((r) => [r.id, r.value]));
     res.json(map);
 });
+
+app.post("/percent", (req, res) => {
+    const body = req.body;
+    if (!body || typeof body !== "object") {
+        return res.status(400).json({ error: "Invalid JSON body" });
+    }
+
+    const ts = Math.floor(Date.now() / 1000);
+    let changes = 0;
+
+    if (typeof body.id === "string" && typeof body.value === "number") {
+        upsertPercent.run({ id: body.id, value: body.value, ts });
+        changes++;
+    } else if (!Array.isArray(body)) {
+        for (const [k, v] of Object.entries(body)) {
+            if (typeof v === "number") {
+                upsertPercent.run({ id: k, value: v, ts });
+                changes++;
+            }
+        }
+    }
+
+    if (!changes) {
+        return res
+            .status(400)
+            .json({ error: "No numeric sensor values found in body" });
+    }
+
+    const rows = selectPercentAll.all();
+    const map = Object.fromEntries(rows.map((r) => [r.id, r.value]));
+    res.json({ ok: true, percent: map });
+})
+
+app.get("/percent", (req, res) => {
+    const rows = selectPercentAll.all();
+    const map = Object.fromEntries(rows.map((r) => [r.id, r.value]));
+    res.json(map);
+})
 
 app.post("/sensors", (req, res) => {
     const body = req.body;
